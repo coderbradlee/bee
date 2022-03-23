@@ -7,6 +7,7 @@ package api_test
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -19,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	accountingmock "github.com/ethersphere/bee/pkg/accounting/mock"
 	"github.com/ethersphere/bee/pkg/api"
 	mockauth "github.com/ethersphere/bee/pkg/auth/mock"
 	"github.com/ethersphere/bee/pkg/crypto"
@@ -27,6 +30,8 @@ import (
 	"github.com/ethersphere/bee/pkg/file/pipeline/builder"
 	"github.com/ethersphere/bee/pkg/jsonhttp/jsonhttptest"
 	"github.com/ethersphere/bee/pkg/logging"
+	p2pmock "github.com/ethersphere/bee/pkg/p2p/mock"
+	"github.com/ethersphere/bee/pkg/pingpong"
 	"github.com/ethersphere/bee/pkg/pinning"
 	"github.com/ethersphere/bee/pkg/postage"
 	mockpost "github.com/ethersphere/bee/pkg/postage/mock"
@@ -35,6 +40,8 @@ import (
 	"github.com/ethersphere/bee/pkg/pusher"
 	"github.com/ethersphere/bee/pkg/resolver"
 	resolverMock "github.com/ethersphere/bee/pkg/resolver/mock"
+	chequebookmock "github.com/ethersphere/bee/pkg/settlement/swap/chequebook/mock"
+	swapmock "github.com/ethersphere/bee/pkg/settlement/swap/mock"
 	statestore "github.com/ethersphere/bee/pkg/statestore/mock"
 	"github.com/ethersphere/bee/pkg/steward"
 	"github.com/ethersphere/bee/pkg/storage"
@@ -42,6 +49,9 @@ import (
 	testingc "github.com/ethersphere/bee/pkg/storage/testing"
 	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/tags"
+	"github.com/ethersphere/bee/pkg/topology/lightnode"
+	topologymock "github.com/ethersphere/bee/pkg/topology/mock"
+	transactionmock "github.com/ethersphere/bee/pkg/transaction/mock"
 	"github.com/ethersphere/bee/pkg/traversal"
 	"github.com/gorilla/websocket"
 	"resenje.org/web"
@@ -81,6 +91,22 @@ type testServerOptions struct {
 	Authenticator      *mockauth.Auth
 	Restricted         bool
 	DirectUpload       bool
+
+	Overlay         swarm.Address
+	PublicKey       ecdsa.PublicKey
+	PSSPublicKey    ecdsa.PublicKey
+	EthereumAddress common.Address
+	BlockTime       *big.Int
+	P2P             *p2pmock.Service
+	Pingpong        pingpong.Interface
+	TopologyOpts    []topologymock.Option
+	AccountingOpts  []accountingmock.Option
+	SettlementOpts  []swapmock.Option
+	ChequebookOpts  []chequebookmock.Option
+	SwapOpts        []swapmock.Option
+	BatchStore      postage.Storer
+	TransactionOpts []transactionmock.Option
+	Traverser       traversal.Traverser
 }
 
 func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.Conn, string, *chanStorer) {
@@ -116,6 +142,21 @@ func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.
 	}
 	ts := httptest.NewServer(s)
 	t.Cleanup(ts.Close)
+
+	topologyDriver := topologymock.NewTopologyDriver(o.TopologyOpts...)
+	acc := accountingmock.NewAccounting(o.AccountingOpts...)
+	settlement := swapmock.New(o.SettlementOpts...)
+	chequebook := chequebookmock.NewChequebook(o.ChequebookOpts...)
+	swapserv := swapmock.New(o.SwapOpts...)
+
+	ln := lightnode.NewContainer(o.Overlay)
+	transaction := transactionmock.New(o.TransactionOpts...)
+	s.Configure(o.Overlay, o.P2P, o.Pingpong, topologyDriver, ln, o.Storer, o.Tags, acc, settlement, true, true, swapserv, chequebook, o.BatchStore, o.Post, o.PostageContract, o.Traverser,
+		o.PublicKey,
+		o.PSSPublicKey,
+		o.EthereumAddress,
+		o.BlockTime,
+		transaction)
 
 	var (
 		httpClient = &http.Client{

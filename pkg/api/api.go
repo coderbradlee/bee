@@ -8,6 +8,7 @@ package api
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,6 +24,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethersphere/bee/pkg/accounting"
 	"github.com/ethersphere/bee/pkg/auth"
 	"github.com/ethersphere/bee/pkg/crypto"
 	"github.com/ethersphere/bee/pkg/feeds"
@@ -30,20 +34,28 @@ import (
 	"github.com/ethersphere/bee/pkg/jsonhttp"
 	"github.com/ethersphere/bee/pkg/logging"
 	m "github.com/ethersphere/bee/pkg/metrics"
+	"github.com/ethersphere/bee/pkg/p2p"
+	"github.com/ethersphere/bee/pkg/pingpong"
 	"github.com/ethersphere/bee/pkg/pinning"
 	"github.com/ethersphere/bee/pkg/postage"
 	"github.com/ethersphere/bee/pkg/postage/postagecontract"
 	"github.com/ethersphere/bee/pkg/pss"
 	"github.com/ethersphere/bee/pkg/pusher"
 	"github.com/ethersphere/bee/pkg/resolver"
+	"github.com/ethersphere/bee/pkg/settlement"
+	"github.com/ethersphere/bee/pkg/settlement/swap"
+	"github.com/ethersphere/bee/pkg/settlement/swap/chequebook"
 	"github.com/ethersphere/bee/pkg/steward"
 	"github.com/ethersphere/bee/pkg/storage"
 	"github.com/ethersphere/bee/pkg/swarm"
 	"github.com/ethersphere/bee/pkg/tags"
 	"github.com/ethersphere/bee/pkg/topology"
+	"github.com/ethersphere/bee/pkg/topology/lightnode"
 	"github.com/ethersphere/bee/pkg/tracing"
+	"github.com/ethersphere/bee/pkg/transaction"
 	"github.com/ethersphere/bee/pkg/traversal"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -94,6 +106,12 @@ type Service interface {
 	http.Handler
 	m.Collector
 	io.Closer
+	Configure(overlay swarm.Address, p2p p2p.DebugService, pingpong pingpong.Interface, topologyDriver topology.Driver,
+		lightNodes *lightnode.Container, storer storage.Storer, tags *tags.Tags, accounting accounting.Interface,
+		pseudosettle settlement.Interface, swapEnabled bool, chequebookEnabled bool, swap swap.Interface,
+		chequebook chequebook.Service, batchStore postage.Storer, post postage.Service, postageContract postagecontract.Interface,
+		traverser traversal.Traverser, publicKey, pssPublicKey ecdsa.PublicKey, ethereumAddress common.Address, blockTime *big.Int,
+		transaction transaction.Service)
 }
 
 type authenticator interface {
@@ -125,6 +143,33 @@ type server struct {
 
 	wsWg sync.WaitGroup // wait for all websockets to close on exit
 	quit chan struct{}
+
+	// from debug API
+	overlay           *swarm.Address
+	publicKey         ecdsa.PublicKey
+	pssPublicKey      ecdsa.PublicKey
+	ethereumAddress   common.Address
+	chequebookEnabled bool
+	swapEnabled       bool
+
+	topologyDriver topology.Driver
+	p2p            p2p.DebugService
+	accounting     accounting.Interface
+	chequebook     chequebook.Service
+	pseudosettle   settlement.Interface
+	pingpong       pingpong.Interface
+	batchStore     postage.Storer
+
+	swap        swap.Interface
+	transaction transaction.Service
+	lightNodes  *lightnode.Container
+	blockTime   *big.Int
+	traverser   traversal.Traverser
+	beeMode     BeeNodeMode
+	gatewayMode bool
+
+	postageSem       *semaphore.Weighted
+	cashOutChequeSem *semaphore.Weighted
 }
 
 type Options struct {
@@ -165,6 +210,42 @@ func New(tags *tags.Tags, storer storage.Storer, resolver resolver.Interface, ps
 	s.setupRouting()
 
 	return s, s.chunkPushC
+}
+
+// Configure injects required dependencies and configuration parameters and
+// constructs HTTP routes that depend on them. It is intended and safe to call
+// this method only once.
+func (s *server) Configure(overlay swarm.Address, p2p p2p.DebugService, pingpong pingpong.Interface, topologyDriver topology.Driver,
+	lightNodes *lightnode.Container, storer storage.Storer, tags *tags.Tags, accounting accounting.Interface,
+	pseudosettle settlement.Interface, swapEnabled bool, chequebookEnabled bool, swap swap.Interface,
+	chequebook chequebook.Service, batchStore postage.Storer, post postage.Service, postageContract postagecontract.Interface,
+	traverser traversal.Traverser, publicKey, pssPublicKey ecdsa.PublicKey, ethereumAddress common.Address, blockTime *big.Int,
+	transaction transaction.Service) {
+	s.p2p = p2p
+	s.pingpong = pingpong
+	s.topologyDriver = topologyDriver
+	s.storer = storer
+	s.tags = tags
+	s.accounting = accounting
+	s.chequebookEnabled = chequebookEnabled
+	s.chequebook = chequebook
+	s.swapEnabled = swapEnabled
+	s.swap = swap
+	s.lightNodes = lightNodes
+	s.batchStore = batchStore
+	s.pseudosettle = pseudosettle
+	s.overlay = &overlay
+	s.post = post
+	s.postageContract = postageContract
+	s.traverser = traverser
+	// debug
+	s.postageSem = semaphore.NewWeighted(1)
+	s.cashOutChequeSem = semaphore.NewWeighted(1)
+	s.publicKey = publicKey
+	s.pssPublicKey = pssPublicKey
+	s.ethereumAddress = ethereumAddress
+	s.blockTime = blockTime
+	s.transaction = transaction
 }
 
 // Close hangs up running websockets on shutdown.
