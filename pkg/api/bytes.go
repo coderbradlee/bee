@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ethersphere/bee/pkg/jsonhttp"
 	"github.com/ethersphere/bee/pkg/postage"
@@ -25,6 +26,9 @@ type bytesPostResponse struct {
 
 // bytesUploadHandler handles upload of raw binary data of arbitrary length.
 func (s *server) bytesUploadHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	defer func() { s.logger.Debugf("tracking; bytesUploadHandler took: %v", time.Since(start)) }()
+
 	logger := tracing.NewLoggerWithTraceID(r.Context(), s.logger)
 
 	putter, wait, err := s.newStamperPutter(r)
