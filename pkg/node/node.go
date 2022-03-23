@@ -821,7 +821,12 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 
 		b.chainSyncerCloser = chainSyncer
 	}
-	var apiService api.Service
+
+	var (
+		apiService       api.Service
+		debugSwapService swap.Interface = swapService
+	)
+
 	if o.APIAddr != "" {
 		// API server
 		var chunkC <-chan *pusher.Op
@@ -838,6 +843,9 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 		if err != nil {
 			return nil, fmt.Errorf("api listener: %w", err)
 		}
+
+		// apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudosettleService, o.SwapEnable, o.ChequebookEnable, debugSwapService, chequebookService, batchStore, post, postageContractService, traversalService,
+		// 	*pubKey, *publicKey, erc20Address, big.NewInt(1), transactionService)
 
 		apiServer := &http.Server{
 			IdleTimeout:       30 * time.Second,
@@ -912,8 +920,6 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 		if chainSyncer != nil {
 			debugAPIService.MustRegisterMetrics(chainSyncer.Metrics()...)
 		}
-
-		var debugSwapService swap.Interface = swapService
 
 		if !chainEnabled {
 			debugSwapService = new(swap.NoOpSwap)
