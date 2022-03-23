@@ -854,7 +854,7 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 		go func() {
 			logger.Infof("api address: %s", apiListener.Addr())
 
-			apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudosettleService, o.SwapEnable, o.ChequebookEnable, debugSwapService, chequebookService, batchStore, post, postageContractService, traversalService, *publicKey, pssPrivateKey.PublicKey, overlayEthAddress, big.NewInt(int64(o.BlockTime)), transactionService)
+			// apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudosettleService, o.SwapEnable, o.ChequebookEnable, debugSwapService, chequebookService, batchStore, post, postageContractService, traversalService, *publicKey, pssPrivateKey.PublicKey, overlayEthAddress, big.NewInt(int64(o.BlockTime)), transactionService)
 
 			if err := apiServer.Serve(apiListener); err != nil && err != http.ErrServerClosed {
 				logger.Debugf("api server: %v", err)
