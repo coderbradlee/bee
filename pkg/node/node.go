@@ -844,7 +844,7 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 			return nil, fmt.Errorf("api listener: %w", err)
 		}
 
-		// apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudosettleService, o.SwapEnable, o.ChequebookEnable, debugSwapService, chequebookService, batchStore, post, postageContractService, traversalService, *publicKey, pssPrivateKey.PublicKey, overlayEthAddress, big.NewInt(int64(o.BlockTime)), transactionService)
+		apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudosettleService, o.SwapEnable, o.ChequebookEnable, debugSwapService, chequebookService, batchStore, post, postageContractService, traversalService, *publicKey, pssPrivateKey.PublicKey, overlayEthAddress, big.NewInt(int64(o.BlockTime)), transactionService)
 
 		apiServer := &http.Server{
 			IdleTimeout:       30 * time.Second,
