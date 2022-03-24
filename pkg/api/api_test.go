@@ -101,7 +101,7 @@ type testServerOptions struct {
 	Pingpong        pingpong.Interface
 	TopologyOpts    []topologymock.Option
 	AccountingOpts  []accountingmock.Option
-	SettlementOpts  []swapmock.Option
+	// SettlementOpts  []swapmock.Option
 	ChequebookOpts  []chequebookmock.Option
 	SwapOpts        []swapmock.Option
 	BatchStore      postage.Storer
@@ -133,20 +133,20 @@ func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.
 
 	topologyDriver := topologymock.NewTopologyDriver(o.TopologyOpts...)
 	acc := accountingmock.NewAccounting(o.AccountingOpts...)
-	settlement := swapmock.New(o.SettlementOpts...)
+	settlement := swapmock.New(o.SwapOpts...)
 	chequebook := chequebookmock.NewChequebook(o.ChequebookOpts...)
-	// swapserv := swapmock.New(o.SwapOpts...)
-
 	ln := lightnode.NewContainer(o.Overlay)
 	transaction := transactionmock.New(o.TransactionOpts...)
 
 	var do = api.DebugOptions{
-		TopologyDriver: topologyDriver,
-		Accounting:     acc,
-		Swap:           settlement,
-		Chequebook:     chequebook,
-		LightNodes:     ln,
-		Transaction:    transaction,
+		TopologyDriver:    topologyDriver,
+		Accounting:        acc,
+		Swap:              settlement,
+		Chequebook:        chequebook,
+		LightNodes:        ln,
+		Transaction:       transaction,
+		ChequebookEnabled: true,
+		SwapEnabled:       true,
 	}
 	s, chC := api.New(o.Tags, o.Storer, o.Resolver, o.Pss, o.Traversal, o.Pinning, o.Feeds, o.Post, o.PostageContract, o.Steward, signer, o.Authenticator, o.Logger, nil, api.Options{
 		CORSAllowedOrigins: o.CORSAllowedOrigins,

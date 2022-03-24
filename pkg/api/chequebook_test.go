@@ -57,7 +57,6 @@ func TestChequebookBalance(t *testing.T) {
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got balance: %+v, expected: %+v", got, expected)
 	}
-
 }
 
 func TestChequebookBalanceError(t *testing.T) {
