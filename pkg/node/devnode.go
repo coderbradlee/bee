@@ -283,36 +283,6 @@ func NewDevBee(logger logging.Logger, o *DevOptions) (b *DevBee, err error) {
 
 	feedFactory := factory.New(storer)
 
-	apiService, _ := api.New(tagService, storer, nil, pssService, traversalService, pinningService, feedFactory, post, postageContract, nil, signer, authenticator, logger, tracer, api.Options{
-		CORSAllowedOrigins: o.CORSAllowedOrigins,
-		WsPingPeriod:       60 * time.Second,
-		Restricted:         o.Restricted,
-	}, api.DebugOptions{})
-
-	apiListener, err := net.Listen("tcp", o.APIAddr)
-	if err != nil {
-		return nil, fmt.Errorf("api listener: %w", err)
-	}
-
-	apiServer := &http.Server{
-		IdleTimeout:       30 * time.Second,
-		ReadHeaderTimeout: 3 * time.Second,
-		Handler:           apiService,
-		ErrorLog:          log.New(b.errorLogWriter, "", 0),
-	}
-
-	go func() {
-		logger.Infof("api address: %s", apiListener.Addr())
-
-		if err := apiServer.Serve(apiListener); err != nil && err != http.ErrServerClosed {
-			logger.Debugf("api server: %v", err)
-			logger.Error("unable to serve api")
-		}
-	}()
-
-	b.apiServer = apiServer
-	b.apiCloser = apiService
-
 	var (
 		lightNodes = lightnode.NewContainer(swarm.NewAddress(nil))
 		pingPong   = mockPingPong.New(pong)
@@ -381,12 +351,55 @@ func NewDevBee(logger logging.Logger, o *DevOptions) (b *DevBee, err error) {
 	// inject dependencies and configure full debug api http path routes
 	debugAPIService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudoset, true, true, mockSwap, mockChequebook, batchStore, post, postageContract, traversalService)
 
-	// apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudoset, true, true, mockSwap, mockChequebook, batchStore, post, postageContract, traversalService,
-	// 	mockKey.PublicKey,
-	// 	mockKey.PublicKey,
-	// 	overlayEthAddress,
-	// 	big.NewInt(2),
-	// 	mockTransaction)
+	do := api.DebugOptions{
+		Overlay:           swarmAddress,
+		P2p:               p2ps,
+		Pingpong:          pingPong,
+		TopologyDriver:    kad,
+		LightNodes:        lightNodes,
+		Accounting:        acc,
+		Swap:              mockSwap,
+		Pseudosettle:      pseudoset,
+		SwapEnabled:       true,
+		ChequebookEnabled: true,
+		Chequebook:        mockChequebook,
+		BatchStore:        batchStore,
+		Transaction:       mockTransaction,
+		PublicKey:         mockKey.PublicKey,
+		PSSPublicKey:      mockKey.PublicKey,
+		EthereumAddress:   overlayEthAddress,
+		BlockTime:         big.NewInt(2),
+	}
+
+	apiService, _ := api.New(tagService, storer, nil, pssService, traversalService, pinningService, feedFactory, post, postageContract, nil, signer, authenticator, logger, tracer, api.Options{
+		CORSAllowedOrigins: o.CORSAllowedOrigins,
+		WsPingPeriod:       60 * time.Second,
+		Restricted:         o.Restricted,
+	}, do)
+
+	apiListener, err := net.Listen("tcp", o.APIAddr)
+	if err != nil {
+		return nil, fmt.Errorf("api listener: %w", err)
+	}
+
+	apiServer := &http.Server{
+		IdleTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 3 * time.Second,
+		Handler:           apiService,
+		ErrorLog:          log.New(b.errorLogWriter, "", 0),
+	}
+
+	go func() {
+		logger.Infof("api address: %s", apiListener.Addr())
+
+		if err := apiServer.Serve(apiListener); err != nil && err != http.ErrServerClosed {
+			logger.Debugf("api server: %v", err)
+			logger.Error("unable to serve api")
+		}
+	}()
+
+	b.apiServer = apiServer
+	b.apiCloser = apiService
 
 	return b, nil
 }
