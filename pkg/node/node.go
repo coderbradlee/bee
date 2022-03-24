@@ -835,7 +835,7 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 
 		do := api.DebugOptions{
 			Overlay:           swarmAddress,
-			P2p:               p2ps,
+			P2P:               p2ps,
 			Pingpong:          pingPong,
 			TopologyDriver:    kad,
 			LightNodes:        lightNodes,

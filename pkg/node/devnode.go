@@ -353,7 +353,7 @@ func NewDevBee(logger logging.Logger, o *DevOptions) (b *DevBee, err error) {
 
 	do := api.DebugOptions{
 		Overlay:           swarmAddress,
-		P2p:               p2ps,
+		P2P:               p2ps,
 		Pingpong:          pingPong,
 		TopologyDriver:    kad,
 		LightNodes:        lightNodes,

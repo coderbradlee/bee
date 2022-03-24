@@ -174,7 +174,7 @@ type Options struct {
 
 type DebugOptions struct {
 	Overlay                 swarm.Address
-	P2p                     p2p.DebugService
+	P2P                     p2p.DebugService
 	Pingpong                pingpong.Interface
 	TopologyDriver          topology.Driver
 	LightNodes              *lightnode.Container
@@ -219,7 +219,7 @@ func New(tags *tags.Tags, storer storage.Storer, resolver resolver.Interface, ps
 		quit:            make(chan struct{}),
 	}
 
-	s.p2p = do.P2p
+	s.p2p = do.P2P
 	s.pingpong = do.Pingpong
 	s.topologyDriver = do.TopologyDriver
 	s.accounting = do.Accounting

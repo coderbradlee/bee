@@ -40,8 +40,10 @@ import (
 	"github.com/ethersphere/bee/pkg/pusher"
 	"github.com/ethersphere/bee/pkg/resolver"
 	resolverMock "github.com/ethersphere/bee/pkg/resolver/mock"
+	"github.com/ethersphere/bee/pkg/settlement/pseudosettle"
 	chequebookmock "github.com/ethersphere/bee/pkg/settlement/swap/chequebook/mock"
 	swapmock "github.com/ethersphere/bee/pkg/settlement/swap/mock"
+	statemock "github.com/ethersphere/bee/pkg/statestore/mock"
 	statestore "github.com/ethersphere/bee/pkg/statestore/mock"
 	"github.com/ethersphere/bee/pkg/steward"
 	"github.com/ethersphere/bee/pkg/storage"
@@ -137,17 +139,30 @@ func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.
 	chequebook := chequebookmock.NewChequebook(o.ChequebookOpts...)
 	ln := lightnode.NewContainer(o.Overlay)
 	transaction := transactionmock.New(o.TransactionOpts...)
+	storeRecipient := statemock.NewStateStore()
+	p2ps := p2pmock.New()
+	recipient := pseudosettle.New(nil, o.Logger, storeRecipient, nil, big.NewInt(10000), big.NewInt(10000), p2ps)
 
 	var do = api.DebugOptions{
 		TopologyDriver:    topologyDriver,
 		Accounting:        acc,
 		Swap:              settlement,
+		Pseudosettle:      recipient,
 		Chequebook:        chequebook,
 		LightNodes:        ln,
 		Transaction:       transaction,
 		ChequebookEnabled: true,
 		SwapEnabled:       true,
+		PublicKey:         o.PublicKey,
+		PSSPublicKey:      o.PSSPublicKey,
+		Overlay:           o.Overlay,
+		P2P:               o.P2P,
+		Pingpong:          o.Pingpong,
+		BatchStore:        o.BatchStore,
+		EthereumAddress:   o.EthereumAddress,
+		BlockTime:         o.BlockTime,
 	}
+
 	s, chC := api.New(o.Tags, o.Storer, o.Resolver, o.Pss, o.Traversal, o.Pinning, o.Feeds, o.Post, o.PostageContract, o.Steward, signer, o.Authenticator, o.Logger, nil, api.Options{
 		CORSAllowedOrigins: o.CORSAllowedOrigins,
 		GatewayMode:        o.GatewayMode,
