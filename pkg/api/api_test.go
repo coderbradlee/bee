@@ -130,12 +130,30 @@ func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.
 		o.Authenticator = &mockauth.Auth{}
 	}
 	var chanStore *chanStorer
+
+	topologyDriver := topologymock.NewTopologyDriver(o.TopologyOpts...)
+	acc := accountingmock.NewAccounting(o.AccountingOpts...)
+	settlement := swapmock.New(o.SettlementOpts...)
+	chequebook := chequebookmock.NewChequebook(o.ChequebookOpts...)
+	// swapserv := swapmock.New(o.SwapOpts...)
+
+	ln := lightnode.NewContainer(o.Overlay)
+	transaction := transactionmock.New(o.TransactionOpts...)
+
+	var do = api.DebugOptions{
+		TopologyDriver: topologyDriver,
+		Accounting:     acc,
+		Swap:           settlement,
+		Chequebook:     chequebook,
+		LightNodes:     ln,
+		Transaction:    transaction,
+	}
 	s, chC := api.New(o.Tags, o.Storer, o.Resolver, o.Pss, o.Traversal, o.Pinning, o.Feeds, o.Post, o.PostageContract, o.Steward, signer, o.Authenticator, o.Logger, nil, api.Options{
 		CORSAllowedOrigins: o.CORSAllowedOrigins,
 		GatewayMode:        o.GatewayMode,
 		WsPingPeriod:       o.WsPingPeriod,
 		Restricted:         o.Restricted,
-	})
+	}, do)
 	if o.DirectUpload {
 		chanStore = newChanStore(chC)
 		t.Cleanup(chanStore.stop)
@@ -143,20 +161,12 @@ func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.
 	ts := httptest.NewServer(s)
 	t.Cleanup(ts.Close)
 
-	topologyDriver := topologymock.NewTopologyDriver(o.TopologyOpts...)
-	acc := accountingmock.NewAccounting(o.AccountingOpts...)
-	settlement := swapmock.New(o.SettlementOpts...)
-	chequebook := chequebookmock.NewChequebook(o.ChequebookOpts...)
-	swapserv := swapmock.New(o.SwapOpts...)
-
-	ln := lightnode.NewContainer(o.Overlay)
-	transaction := transactionmock.New(o.TransactionOpts...)
-	s.Configure(o.Overlay, o.P2P, o.Pingpong, topologyDriver, ln, o.Storer, o.Tags, acc, settlement, true, true, swapserv, chequebook, o.BatchStore, o.Post, o.PostageContract, o.Traverser,
-		o.PublicKey,
-		o.PSSPublicKey,
-		o.EthereumAddress,
-		o.BlockTime,
-		transaction)
+	// s.Configure(o.Overlay, o.P2P, o.Pingpong, topologyDriver, ln, o.Storer, o.Tags, acc, settlement, true, true, swapserv, chequebook, o.BatchStore, o.Post, o.PostageContract, o.Traverser,
+	// 	o.PublicKey,
+	// 	o.PSSPublicKey,
+	// 	o.EthereumAddress,
+	// 	o.BlockTime,
+	// 	transaction)
 
 	var (
 		httpClient = &http.Client{
@@ -275,7 +285,7 @@ func TestParseName(t *testing.T) {
 		signer := crypto.NewDefaultSigner(pk)
 		mockPostage := mockpost.New()
 
-		s, _ := api.New(nil, nil, tC.res, nil, nil, nil, nil, mockPostage, nil, nil, signer, nil, log, nil, api.Options{})
+		s, _ := api.New(nil, nil, tC.res, nil, nil, nil, nil, mockPostage, nil, nil, signer, nil, log, nil, api.Options{}, api.DebugOptions{})
 
 		t.Run(tC.desc, func(t *testing.T) {
 			got, err := s.(*api.Server).ResolveNameOrAddress(tC.name)

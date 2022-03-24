@@ -832,17 +832,39 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 		var chunkC <-chan *pusher.Op
 		feedFactory := factory.New(ns)
 		steward := steward.New(storer, traversalService, retrieve, pushSyncProtocol)
+
+		do := api.DebugOptions{
+			Overlay:           swarmAddress,
+			P2p:               p2ps,
+			Pingpong:          pingPong,
+			TopologyDriver:    kad,
+			LightNodes:        lightNodes,
+			Accounting:        acc,
+			Pseudosettle:      pseudosettleService,
+			SwapEnabled:       o.SwapEnable,
+			ChequebookEnabled: o.ChequebookEnable,
+			Swap:              debugSwapService,
+			BatchStore:        batchStore,
+			PublicKey:         *publicKey,
+			PSSPublicKey:      pssPrivateKey.PublicKey,
+			EthereumAddress:   overlayEthAddress,
+			BlockTime:         big.NewInt(int64(o.BlockTime)),
+			Transaction:       transactionService,
+		}
+
 		apiService, chunkC = api.New(tagService, ns, multiResolver, pssService, traversalService, pinningService, feedFactory, post, postageContractService, steward, signer, authenticator, logger, tracer, api.Options{
 			CORSAllowedOrigins: o.CORSAllowedOrigins,
 			GatewayMode:        o.GatewayMode,
 			WsPingPeriod:       60 * time.Second,
 			Restricted:         o.Restricted,
-		})
+		}, do)
 		pusherService.AddFeed(chunkC)
 		apiListener, err := net.Listen("tcp", o.APIAddr)
 		if err != nil {
 			return nil, fmt.Errorf("api listener: %w", err)
 		}
+
+		// apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudosettleService, o.SwapEnable, o.ChequebookEnable, debugSwapService, chequebookService, batchStore, post, postageContractService, traversalService, *publicKey, pssPrivateKey.PublicKey, overlayEthAddress, big.NewInt(int64(o.BlockTime)), transactionService)
 
 		apiServer := &http.Server{
 			IdleTimeout:       30 * time.Second,
@@ -853,8 +875,6 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 
 		go func() {
 			logger.Infof("api address: %s", apiListener.Addr())
-
-			// apiService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudosettleService, o.SwapEnable, o.ChequebookEnable, debugSwapService, chequebookService, batchStore, post, postageContractService, traversalService, *publicKey, pssPrivateKey.PublicKey, overlayEthAddress, big.NewInt(int64(o.BlockTime)), transactionService)
 
 			if err := apiServer.Serve(apiListener); err != nil && err != http.ErrServerClosed {
 				logger.Debugf("api server: %v", err)

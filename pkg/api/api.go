@@ -106,12 +106,6 @@ type Service interface {
 	http.Handler
 	m.Collector
 	io.Closer
-	Configure(overlay swarm.Address, p2p p2p.DebugService, pingpong pingpong.Interface, topologyDriver topology.Driver,
-		lightNodes *lightnode.Container, storer storage.Storer, tags *tags.Tags, accounting accounting.Interface,
-		pseudosettle settlement.Interface, swapEnabled bool, chequebookEnabled bool, swap swap.Interface,
-		chequebook chequebook.Service, batchStore postage.Storer, post postage.Service, postageContract postagecontract.Interface,
-		traverser traversal.Traverser, publicKey, pssPublicKey ecdsa.PublicKey, ethereumAddress common.Address, blockTime *big.Int,
-		transaction transaction.Service)
 }
 
 type authenticator interface {
@@ -164,7 +158,6 @@ type server struct {
 	transaction transaction.Service
 	lightNodes  *lightnode.Container
 	blockTime   *big.Int
-	traverser   traversal.Traverser
 	beeMode     BeeNodeMode
 	gatewayMode bool
 
@@ -179,13 +172,32 @@ type Options struct {
 	Restricted         bool
 }
 
+type DebugOptions struct {
+	Overlay                 swarm.Address
+	P2p                     p2p.DebugService
+	Pingpong                pingpong.Interface
+	TopologyDriver          topology.Driver
+	LightNodes              *lightnode.Container
+	Accounting              accounting.Interface
+	Pseudosettle            settlement.Interface
+	SwapEnabled             bool
+	ChequebookEnabled       bool
+	Swap                    swap.Interface
+	Chequebook              chequebook.Service
+	BatchStore              postage.Storer
+	PublicKey, PSSPublicKey ecdsa.PublicKey
+	EthereumAddress         common.Address
+	BlockTime               *big.Int
+	Transaction             transaction.Service
+}
+
 const (
 	// TargetsRecoveryHeader defines the Header for Recovery targets in Global Pinning
 	TargetsRecoveryHeader = "swarm-recovery-targets"
 )
 
 // New will create a and initialize a new API service.
-func New(tags *tags.Tags, storer storage.Storer, resolver resolver.Interface, pss pss.Interface, traversalService traversal.Traverser, pinning pinning.Interface, feedFactory feeds.Factory, post postage.Service, postageContract postagecontract.Interface, steward steward.Interface, signer crypto.Signer, auth authenticator, logger logging.Logger, tracer *tracing.Tracer, o Options) (Service, <-chan *pusher.Op) {
+func New(tags *tags.Tags, storer storage.Storer, resolver resolver.Interface, pss pss.Interface, traversalService traversal.Traverser, pinning pinning.Interface, feedFactory feeds.Factory, post postage.Service, postageContract postagecontract.Interface, steward steward.Interface, signer crypto.Signer, auth authenticator, logger logging.Logger, tracer *tracing.Tracer, o Options, do DebugOptions) (Service, <-chan *pusher.Op) {
 	s := &server{
 		auth:            auth,
 		tags:            tags,
@@ -206,6 +218,27 @@ func New(tags *tags.Tags, storer storage.Storer, resolver resolver.Interface, ps
 		metrics:         newMetrics(),
 		quit:            make(chan struct{}),
 	}
+
+	s.p2p = do.P2p
+	s.pingpong = do.Pingpong
+	s.topologyDriver = do.TopologyDriver
+	s.accounting = do.Accounting
+	s.chequebookEnabled = do.ChequebookEnabled
+	s.chequebook = do.Chequebook
+	s.swapEnabled = do.SwapEnabled
+	s.swap = do.Swap
+	s.lightNodes = do.LightNodes
+	s.batchStore = do.BatchStore
+	s.pseudosettle = do.Pseudosettle
+	s.overlay = &do.Overlay
+	s.publicKey = do.PublicKey
+	s.pssPublicKey = do.PSSPublicKey
+	s.ethereumAddress = do.EthereumAddress
+	s.blockTime = do.BlockTime
+	s.transaction = do.Transaction
+
+	s.postageSem = semaphore.NewWeighted(1)
+	s.cashOutChequeSem = semaphore.NewWeighted(1)
 
 	s.setupRouting()
 
@@ -237,7 +270,6 @@ func (s *server) Configure(overlay swarm.Address, p2p p2p.DebugService, pingpong
 	s.overlay = &overlay
 	s.post = post
 	s.postageContract = postageContract
-	s.traverser = traverser
 	// debug
 	s.postageSem = semaphore.NewWeighted(1)
 	s.cashOutChequeSem = semaphore.NewWeighted(1)
