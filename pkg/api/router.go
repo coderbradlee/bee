@@ -377,7 +377,6 @@ func (s *server) setupRouting() {
 			"GET": http.HandlerFunc(s.postageGetAllStampsHandler),
 		})),
 	)
-	// ===========================================================
 
 	s.Handler = web.ChainHandlers(
 		httpaccess.NewHTTPAccessLogHandler(s.logger, logrus.InfoLevel, s.tracer, "api access"),
