@@ -351,16 +351,16 @@ func NewDevBee(logger logging.Logger, o *DevOptions) (b *DevBee, err error) {
 	// inject dependencies and configure full debug api http path routes
 	debugAPIService.Configure(swarmAddress, p2ps, pingPong, kad, lightNodes, storer, tagService, acc, pseudoset, true, true, mockSwap, mockChequebook, batchStore, post, postageContract, traversalService)
 
-	do := api.DebugOptions{
+	debugOpts := api.DebugOptions{
 		Overlay:           swarmAddress,
 		P2P:               p2ps,
 		Pingpong:          pingPong,
 		TopologyDriver:    kad,
 		LightNodes:        lightNodes,
 		Accounting:        acc,
-		Swap:              mockSwap,
 		Pseudosettle:      pseudoset,
 		SwapEnabled:       true,
+		Swap:              mockSwap,
 		ChequebookEnabled: true,
 		Chequebook:        mockChequebook,
 		BatchStore:        batchStore,
@@ -375,7 +375,7 @@ func NewDevBee(logger logging.Logger, o *DevOptions) (b *DevBee, err error) {
 		CORSAllowedOrigins: o.CORSAllowedOrigins,
 		WsPingPeriod:       60 * time.Second,
 		Restricted:         o.Restricted,
-	}, do)
+	}, debugOpts)
 
 	apiListener, err := net.Listen("tcp", o.APIAddr)
 	if err != nil {

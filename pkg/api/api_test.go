@@ -143,16 +143,16 @@ func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.
 	p2ps := p2pmock.New()
 	recipient := pseudosettle.New(nil, o.Logger, storeRecipient, nil, big.NewInt(10000), big.NewInt(10000), p2ps)
 
-	var do = api.DebugOptions{
+	var debugOpts = api.DebugOptions{
 		TopologyDriver:    topologyDriver,
 		Accounting:        acc,
-		Swap:              settlement,
 		Pseudosettle:      recipient,
-		Chequebook:        chequebook,
 		LightNodes:        ln,
 		Transaction:       transaction,
-		ChequebookEnabled: true,
 		SwapEnabled:       true,
+		Swap:              settlement,
+		ChequebookEnabled: true,
+		Chequebook:        chequebook,
 		PublicKey:         o.PublicKey,
 		PSSPublicKey:      o.PSSPublicKey,
 		Overlay:           o.Overlay,
@@ -168,7 +168,7 @@ func newTestServer(t *testing.T, o testServerOptions) (*http.Client, *websocket.
 		GatewayMode:        o.GatewayMode,
 		WsPingPeriod:       o.WsPingPeriod,
 		Restricted:         o.Restricted,
-	}, do)
+	}, debugOpts)
 	if o.DirectUpload {
 		chanStore = newChanStore(chC)
 		t.Cleanup(chanStore.stop)

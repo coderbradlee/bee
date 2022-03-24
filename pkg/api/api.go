@@ -245,41 +245,6 @@ func New(tags *tags.Tags, storer storage.Storer, resolver resolver.Interface, ps
 	return s, s.chunkPushC
 }
 
-// Configure injects required dependencies and configuration parameters and
-// constructs HTTP routes that depend on them. It is intended and safe to call
-// this method only once.
-func (s *server) Configure(overlay swarm.Address, p2p p2p.DebugService, pingpong pingpong.Interface, topologyDriver topology.Driver,
-	lightNodes *lightnode.Container, storer storage.Storer, tags *tags.Tags, accounting accounting.Interface,
-	pseudosettle settlement.Interface, swapEnabled bool, chequebookEnabled bool, swap swap.Interface,
-	chequebook chequebook.Service, batchStore postage.Storer, post postage.Service, postageContract postagecontract.Interface,
-	traverser traversal.Traverser, publicKey, pssPublicKey ecdsa.PublicKey, ethereumAddress common.Address, blockTime *big.Int,
-	transaction transaction.Service) {
-	s.p2p = p2p
-	s.pingpong = pingpong
-	s.topologyDriver = topologyDriver
-	s.storer = storer
-	s.tags = tags
-	s.accounting = accounting
-	s.chequebookEnabled = chequebookEnabled
-	s.chequebook = chequebook
-	s.swapEnabled = swapEnabled
-	s.swap = swap
-	s.lightNodes = lightNodes
-	s.batchStore = batchStore
-	s.pseudosettle = pseudosettle
-	s.overlay = &overlay
-	s.post = post
-	s.postageContract = postageContract
-	// debug
-	s.postageSem = semaphore.NewWeighted(1)
-	s.cashOutChequeSem = semaphore.NewWeighted(1)
-	s.publicKey = publicKey
-	s.pssPublicKey = pssPublicKey
-	s.ethereumAddress = ethereumAddress
-	s.blockTime = blockTime
-	s.transaction = transaction
-}
-
 // Close hangs up running websockets on shutdown.
 func (s *server) Close() error {
 	s.logger.Info("api shutting down")

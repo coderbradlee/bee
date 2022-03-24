@@ -311,7 +311,6 @@ func (s *server) setupRouting() {
 	}
 
 	if s.chequebookEnabled {
-
 		handleRestricted("/chequebook/balance", jsonhttp.MethodHandler{
 			"GET": http.HandlerFunc(s.chequebookBalanceHandler),
 		})

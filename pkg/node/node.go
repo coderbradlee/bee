@@ -833,7 +833,7 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 		feedFactory := factory.New(ns)
 		steward := steward.New(storer, traversalService, retrieve, pushSyncProtocol)
 
-		do := api.DebugOptions{
+		debugOpts := api.DebugOptions{
 			Overlay:           swarmAddress,
 			P2P:               p2ps,
 			Pingpong:          pingPong,
@@ -841,9 +841,10 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 			LightNodes:        lightNodes,
 			Accounting:        acc,
 			Pseudosettle:      pseudosettleService,
-			SwapEnabled:       o.SwapEnable,
-			ChequebookEnabled: o.ChequebookEnable,
 			Swap:              debugSwapService,
+			SwapEnabled:       o.SwapEnable,
+			Chequebook:        chequebookService,
+			ChequebookEnabled: o.ChequebookEnable,
 			BatchStore:        batchStore,
 			PublicKey:         *publicKey,
 			PSSPublicKey:      pssPrivateKey.PublicKey,
@@ -857,7 +858,7 @@ func NewBee(addr string, publicKey *ecdsa.PublicKey, signer crypto.Signer, netwo
 			GatewayMode:        o.GatewayMode,
 			WsPingPeriod:       60 * time.Second,
 			Restricted:         o.Restricted,
-		}, do)
+		}, debugOpts)
 		pusherService.AddFeed(chunkC)
 		apiListener, err := net.Listen("tcp", o.APIAddr)
 		if err != nil {
